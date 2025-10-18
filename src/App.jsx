@@ -19,9 +19,9 @@ function App() {
   const handleAddComment = () => {
     if (videoRef.current) {
       videoRef.current.pause()
-      // Capture the exact current time with high precision
-      const exactTime = videoRef.current.currentTime
-      setCurrentTime(exactTime)
+      // Capture the current time rounded to seconds
+      const currentTime = Math.floor(videoRef.current.currentTime)
+      setCurrentTime(currentTime)
       setShowCommentModal(true)
     }
   }
@@ -43,8 +43,7 @@ function App() {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60)
     const secs = Math.floor(seconds % 60)
-    const milliseconds = Math.floor((seconds % 1) * 1000)
-    return `${mins}:${secs.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
+    return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
   const handleCommentClick = (timestamp) => {
@@ -55,9 +54,9 @@ function App() {
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      // Capture time with high precision
-      const preciseTime = videoRef.current.currentTime
-      setCurrentTime(preciseTime)
+      // Capture time rounded to seconds
+      const currentTime = Math.floor(videoRef.current.currentTime)
+      setCurrentTime(currentTime)
     }
   }
 
@@ -91,13 +90,17 @@ function App() {
     const containerRect = containerRef.current.getBoundingClientRect()
     const clickX = e.clientX - containerRect.left
     
-    // Calculate position relative to video area (timeline overlay now matches video exactly)
-    const relativeX = clickX - videoBounds.left
-    const percentage = Math.max(0, Math.min(1, relativeX / videoBounds.width))
-    const exactTime = percentage * videoDuration
+    // Account for the 1rem left margin of the timeline overlay
+    const timelineLeft = 16 // 1rem = 16px
+    const timelineWidth = containerRect.width - (16 * 2) // Subtract both left and right margins
     
-    // Return time with millisecond precision
-    return Math.max(0, Math.min(videoDuration, parseFloat(exactTime.toFixed(6))))
+    // Calculate position relative to the timeline overlay area
+    const relativeX = clickX - timelineLeft
+    const percentage = Math.max(0, Math.min(1, relativeX / timelineWidth))
+    const exactTime = Math.floor(percentage * videoDuration)
+    
+    // Return time in seconds
+    return Math.max(0, Math.min(videoDuration, exactTime))
   }
 
   const handleDotMouseEnter = (comment) => {
@@ -129,17 +132,16 @@ function App() {
   }
 
   const calculateTimelinePosition = (timestamp) => {
-    if (!videoRef.current || videoDuration === 0 || videoBounds.width === 0) return 0
+    if (!videoRef.current || videoDuration === 0) return 0
     
-    // Ensure we have a valid timestamp with high precision
+    // Ensure we have a valid timestamp
     const validTimestamp = Math.max(0, Math.min(timestamp, videoDuration))
     
-    // Calculate percentage position relative to video area
-    // Since timeline overlay now matches video exactly, we can use simple percentage
+    // Calculate percentage position relative to timeline overlay width
     const percentage = (validTimestamp / videoDuration) * 100
     
-    // Return with high precision (6 decimal places)
-    return Math.max(0, Math.min(100, parseFloat(percentage.toFixed(6))))
+    // Return percentage rounded to 2 decimal places
+    return Math.max(0, Math.min(100, Math.round(percentage * 100) / 100))
   }
 
   const updateVideoContainerWidth = () => {
@@ -177,13 +179,13 @@ function App() {
     const video = videoRef.current
     if (video) {
       // Prevent fullscreen on mobile devices
-      video.addEventListener('webkitfullscreenchange', (e) => {
+      video.addEventListener('webkitfullscreenchange', () => {
         if (document.webkitFullscreenElement) {
           document.webkitExitFullscreen()
         }
       })
       
-      video.addEventListener('fullscreenchange', (e) => {
+      video.addEventListener('fullscreenchange', () => {
         if (document.fullscreenElement) {
           document.exitFullscreen()
         }
@@ -254,10 +256,6 @@ function App() {
               <div 
                 className="timeline-overlay" 
                 key={`timeline-${videoContainerWidth}-${videoBounds.left}-${videoBounds.width}`}
-                style={{
-                  left: `${videoBounds.left}px`,
-                  width: `${videoBounds.width}px`
-                }}
                 onClick={handleTimelineClick}
                 onMouseMove={handleTimelineMouseMove}
                 onMouseLeave={handleTimelineMouseLeave}
